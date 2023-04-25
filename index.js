@@ -97,7 +97,7 @@ app.get("/nosql-injection", async (req, res) => {
 app.get("/about", (req, res) => {
   var color = req.query.color;
 
-  res.send("<h1 style='color:" + color + ";'>Patrick Guichon</h1>");
+  res.send("<h1 style='color:" + color + ";'>David gdcho Cho</h1>");
 });
 
 app.get("/contact", (req, res) => {
@@ -110,7 +110,7 @@ app.get("/contact", (req, res) => {
         </form>
     `;
   if (missingEmail) {
-    html += "<br> email is required";
+    html += "<br> Email is required";
   }
   res.send(html);
 });
@@ -124,7 +124,7 @@ app.post("/submitEmail", (req, res) => {
   }
 });
 
-app.get("/createUser", (req, res) => {
+app.get("/signUp", (req, res) => {
   var html = `
     create user
     <form action='/submitUser' method='post'>
@@ -150,17 +150,30 @@ app.get("/login", (req, res) => {
 
 app.post("/submitUser", async (req, res) => {
   var username = req.body.username;
+  var email = req.body.email;
   var password = req.body.password;
+
+  if (!username) {
+    res.send(`Name is required. Please <a href='/signup'>try again</a>`);
+  }
+  if (!email) {
+    res.send(`Email is required. Please <a href='/signup'>try again</a>`);
+  }
+  if (!password) {
+    res.send(`Password is required. Please <a href='/signup'>try again</a>`);
+  }
 
   const schema = Joi.object({
     username: Joi.string().alphanum().max(20).required(),
     password: Joi.string().max(20).required(),
+    email: Joi.string().email().required(),
   });
 
-  const validationResult = schema.validate({ username, password });
+  const validationResult = schema.validate({ username, password, email });
   if (validationResult.error != null) {
     console.log(validationResult.error);
-    res.redirect("/createUser");
+    var errorMessage = validationResult.error.details[0].message;
+    res.send(`Error: ${errorMessage}. Please <a href="/signup">try again</a>.`);
     return;
   }
 
@@ -169,22 +182,30 @@ app.post("/submitUser", async (req, res) => {
   await userCollection.insertOne({
     username: username,
     password: hashedPassword,
+    email: email,
   });
   console.log("Inserted user");
 
   var html = "successfully created user";
   res.send(html);
+
+  req.session.authenticated = true;
+  req.session.username = username;
+  req.session.cookie.maxAge = expireTime;
+
+  res.redirect("/members");
 });
 
 app.post("/loggingin", async (req, res) => {
-  var username = req.body.username;
+  var email = req.body.email;
   var password = req.body.password;
 
   const schema = Joi.string().max(20).required();
-  const validationResult = schema.validate(username);
+  const validationResult = schema.validate(email);
   if (validationResult.error != null) {
     console.log(validationResult.error);
     res.redirect("/login");
+    res.send(`Invalid email/password. Please <a href='/login'>try again</a>.`);
     return;
   }
 
@@ -196,19 +217,22 @@ app.post("/loggingin", async (req, res) => {
   console.log(result);
   if (result.length != 1) {
     console.log("user not found");
+    res.send(`User not found. Please <a href='/login'>try again</a>.`);
     res.redirect("/login");
     return;
   }
   if (await bcrypt.compare(password, result[0].password)) {
     console.log("correct password");
     req.session.authenticated = true;
-    req.session.username = username;
+    req.session.email = email;
+    req.session.username = result[0].username;
     req.session.cookie.maxAge = expireTime;
 
-    res.redirect("/loggedIn");
+    res.redirect("/loggedin");
     return;
   } else {
     console.log("incorrect password");
+    res.send(`Incorrect password. Please <a href="/login">try again</a>.`);
     res.redirect("/login");
     return;
   }
@@ -216,12 +240,14 @@ app.post("/loggingin", async (req, res) => {
 
 app.get("/loggedin", (req, res) => {
   if (!req.session.authenticated) {
-    res.redirect("/login");
-  }
-  var html = `
+    var html = `
     You are logged in!
     `;
-  res.send(html);
+    res.send(html);
+    res.redirect("/login");
+  } else {
+    res.redirect("/");
+  }
 });
 
 app.get("/logout", (req, res) => {
@@ -230,17 +256,41 @@ app.get("/logout", (req, res) => {
     You are logged out.
     `;
   res.send(html);
+  res.redirect("/");
 });
 
 app.get("/cat/:id", (req, res) => {
   var cat = req.params.id;
 
   if (cat == 1) {
-    res.send("Fluffy: <img src='/fluffy.gif' style='width:250px;'>");
+    res.send("Fluffy: <img src='/cat_meme.jpg' style='width:250px;'>");
   } else if (cat == 2) {
-    res.send("Socks: <img src='/socks.gif' style='width:250px;'>");
+    res.send("Socks: <img src='/p_cat.gif' style='width:250px;'>");
+  } else if (cat == 3) {
+    res.send("Socks: <img src='/sunglass_cat.jpg' style='width:250px;'>");
+  } else if (cat == 4) {
+    res.send("Socks: <img src='/yelling_cat.jpg' style='width:250px;'>");
   } else {
     res.send("Invalid cat id: " + cat);
+  }
+});
+
+app.get("/members", (req, res) => {
+  if (!req.session.authenticated) {
+    res.redirect("/");
+  } else {
+    const images = [
+      "/cat_meme.jpg",
+      "/p_cat.gif",
+      "/sunglass_cat.jpg",
+      "/yelling_cat.jpg",
+    ];
+    randomIndex = Math.floor(Math.random() * images.length);
+    res.send(`<h1>Hello, ${req.session.username}.</h1>
+    <img src='${images[randomIndex]}'>
+    <form action='/logout' method='get'> 
+      <button type ='submit'>Log out</button>
+    </form>`);
   }
 });
 
