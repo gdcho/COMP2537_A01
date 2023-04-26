@@ -7,7 +7,7 @@ const MongoStore = require("connect-mongo");
 const bcrypt = require("bcrypt");
 const saltRounds = 12;
 
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 3000;
 
 const app = express();
 
@@ -75,7 +75,8 @@ app.get("/nosql-injection", async (req, res) => {
   console.log("user: " + username);
 
   const schema = Joi.string().max(20).required();
-  const validationResult = schema.validate(req.body.username);
+  const validationResult = schema.validate(username);
+
   if (validationResult.error != null) {
     console.log(validationResult.error);
     res.redirect("/login");
@@ -84,6 +85,7 @@ app.get("/nosql-injection", async (req, res) => {
     );
     return;
   }
+
   const result = await userCollection
     .find({ email: email })
     .project({ email: 1, password: 1, username: 1, _id: 1 })
@@ -94,41 +96,42 @@ app.get("/nosql-injection", async (req, res) => {
   res.send(`<h1>Hello ${username}</h1>`);
 });
 
-app.get("/about", (req, res) => {
-  var color = req.query.color;
+// app.get("/about", (req, res) => {
+//   var color = req.query.color;
 
-  res.send("<h1 style='color:" + color + ";'>David gdcho Cho</h1>");
-});
+//   res.send("<h1 style='color:" + color + ";'>David gdcho Cho</h1>");
+// });
 
-app.get("/contact", (req, res) => {
-  var missingEmail = req.query.missing;
-  var html = `
-        email address:
-        <form action='/submitEmail' method='post'>
-            <input name='email' type='text' placeholder='email'>
-            <button>Submit</button>
-        </form>
-    `;
-  if (missingEmail) {
-    html += "<br> Email is required";
-  }
-  res.send(html);
-});
+// app.get("/contact", (req, res) => {
+//   var missingEmail = req.query.missing;
+//   var html = `
+//         email address:
+//         <form action='/submitEmail' method='post'>
+//             <input name='email' type='text' placeholder='email'>
+//             <button>Submit</button>
+//         </form>
+//     `;
+//   if (missingEmail) {
+//     html += "<br> Email is required";
+//   }
+//   res.send(html);
+// });
 
-app.post("/submitEmail", (req, res) => {
-  var email = req.body.email;
-  if (!email) {
-    res.redirect("/contact?missing=1");
-  } else {
-    res.send("Thanks for subscribing with your email: " + email);
-  }
-});
+// app.post("/submitEmail", (req, res) => {
+//   var email = req.body.email;
+//   if (!email) {
+//     res.redirect("/contact?missing=1");
+//   } else {
+//     res.send("Thanks for subscribing with your email: " + email);
+//   }
+// });
 
 app.get("/signUp", (req, res) => {
   var html = `
     create user
     <form action='/submitUser' method='post'>
     <input name='username' type='text' placeholder='username'>
+    <input name='email' type='text' placeholder='email'>
     <input name='password' type='password' placeholder='password'>
     <button>Submit</button>
     </form>
@@ -140,7 +143,7 @@ app.get("/login", (req, res) => {
   var html = `
     log in
     <form action='/loggingin' method='post'>
-    <input name='username' type='text' placeholder='username'>
+    <input name='email' type='text' placeholder='email'>
     <input name='password' type='password' placeholder='password'>
     <button>Submit</button>
     </form>
@@ -153,14 +156,9 @@ app.post("/submitUser", async (req, res) => {
   var email = req.body.email;
   var password = req.body.password;
 
-  if (!username) {
-    res.send(`Name is required. Please <a href='/signup'>try again</a>`);
-  }
-  if (!email) {
-    res.send(`Email is required. Please <a href='/signup'>try again</a>`);
-  }
-  if (!password) {
-    res.send(`Password is required. Please <a href='/signup'>try again</a>`);
+  if (!username || !email || !password) {
+    res.send(`All fields are required. Please <a href='/signup'>try again</a>`);
+    return;
   }
 
   const schema = Joi.object({
@@ -186,9 +184,6 @@ app.post("/submitUser", async (req, res) => {
   });
   console.log("Inserted user");
 
-  var html = "successfully created user";
-  res.send(html);
-
   req.session.authenticated = true;
   req.session.username = username;
   req.session.cookie.maxAge = expireTime;
@@ -204,20 +199,17 @@ app.post("/loggingin", async (req, res) => {
   const validationResult = schema.validate(email);
   if (validationResult.error != null) {
     console.log(validationResult.error);
-    res.redirect("/login");
     res.send(`Invalid email/password. Please <a href='/login'>try again</a>.`);
     return;
   }
 
   const result = await userCollection
-    .find({ username: username })
+    .find({ email: email })
     .project({ username: 1, password: 1, _id: 1 })
     .toArray();
 
   console.log(result);
   if (result.length != 1) {
-    console.log("user not found");
-    res.send(`User not found. Please <a href='/login'>try again</a>.`);
     res.redirect("/login");
     return;
   }
@@ -239,12 +231,8 @@ app.post("/loggingin", async (req, res) => {
 });
 
 app.get("/loggedin", (req, res) => {
-  if (!req.session.authenticated) {
-    var html = `
-    You are logged in!
-    `;
-    res.send(html);
-    res.redirect("/login");
+  if (req.session.authenticated) {
+    res.redirect("/members");
   } else {
     res.redirect("/");
   }
@@ -252,10 +240,6 @@ app.get("/loggedin", (req, res) => {
 
 app.get("/logout", (req, res) => {
   req.session.destroy();
-  var html = `
-    You are logged out.
-    `;
-  res.send(html);
   res.redirect("/");
 });
 
@@ -287,7 +271,7 @@ app.get("/members", (req, res) => {
     ];
     randomIndex = Math.floor(Math.random() * images.length);
     res.send(`<h1>Hello, ${req.session.username}.</h1>
-    <img src='${images[randomIndex]}'>
+    <img src='${images[randomIndex]}' width= "250px">
     <form action='/logout' method='get'> 
       <button type ='submit'>Log out</button>
     </form>`);
