@@ -96,7 +96,11 @@ app.get("/nosql-injection", async (req, res) => {
   res.send(`<h1>Hello ${username}</h1>`);
 });
 
+// app.get("/about", (req, res) => {
+//   var color = req.query.color;
 
+//   res.send("<h1 style='color:" + color + ";'>David gdcho Cho</h1>");
+// });
 
 // app.get("/contact", (req, res) => {
 //   var missingEmail = req.query.missing;
