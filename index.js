@@ -128,12 +128,19 @@ app.get("/nosql-injection", async (req, res) => {
 
 app.get("/signUp", (req, res) => {
   var html = `
-    create user
+    <h2>Creater User Account</h2>
     <form action='/submitUser' method='post'>
-    <input name='username' type='text' placeholder='username'>
-    <input name='email' type='text' placeholder='email'>
-    <input name='password' type='password' placeholder='password'>
-    <button>Submit</button>
+    Username:
+    <input name='username' type='text' placeholder='Username'>
+    <br>
+    Email:
+    <input name='email' type='text' placeholder='Email'>
+    <br>
+    Password:
+    <input name='password' type='password' placeholder='Password'>
+    <br><br>
+    <button><a href="/" style="text-decoration: none; color:black;">Home</a></button>
+    <button>Create User</button>
     </form>
     `;
   res.send(html);
@@ -141,11 +148,14 @@ app.get("/signUp", (req, res) => {
 
 app.get("/login", (req, res) => {
   var html = `
-    log in
+    <h2>Log In</h2>
     <form action='/loggingin' method='post'>
-    <input name='email' type='text' placeholder='email'>
-    <input name='password' type='password' placeholder='password'>
-    <button>Submit</button>
+    Email: <input name='email' type='text' placeholder='Email'>
+    <br>
+    Password: <input name='password' type='password' placeholder='Password'>
+    <br><br>
+    <button><a href="/" style="text-decoration: none; color:black;">Home</a></button>
+    <button>Log-in</button>
     </form>
     `;
   res.send(html);
@@ -157,7 +167,7 @@ app.post("/submitUser", async (req, res) => {
   var password = req.body.password;
 
   if (!username || !email || !password) {
-    res.send(`All fields are required. Please <a href='/signup'>try again</a>`);
+    res.send(`All fields are required. <br><br>Please <a href='/signup'>try again</a>`);
     return;
   }
 
@@ -171,7 +181,7 @@ app.post("/submitUser", async (req, res) => {
   if (validationResult.error != null) {
     console.log(validationResult.error);
     var errorMessage = validationResult.error.details[0].message;
-    res.send(`Error: ${errorMessage}. Please <a href="/signup">try again</a>.`);
+    res.send(`Error: ${errorMessage}. <br><br> Please <a href="/signup">try again</a>.`);
     return;
   }
 
@@ -188,7 +198,7 @@ app.post("/submitUser", async (req, res) => {
   req.session.username = username;
   req.session.cookie.maxAge = expireTime;
 
-  res.redirect("/members");
+  res.redirect("/loggedin");
 });
 
 app.post("/loggingin", async (req, res) => {
@@ -199,7 +209,7 @@ app.post("/loggingin", async (req, res) => {
   const validationResult = schema.validate(email);
   if (validationResult.error != null) {
     console.log(validationResult.error);
-    res.send(`Invalid email/password. Please <a href='/login'>try again</a>.`);
+    res.send(`Please fill out both email and password fields. <br><br> Please <a href='/login'>try again</a>.`);
     return;
   }
 
@@ -209,7 +219,10 @@ app.post("/loggingin", async (req, res) => {
     .toArray();
 
   console.log(result);
-  if (result.length != 1) {
+  if (result.length === 0) {
+    res.send('Invalid email/password. <br><br> Please <a href="/login">try again</a>.');
+    return;
+  } else if (result.length != 1) {
     res.redirect("/login");
     return;
   }
@@ -223,9 +236,7 @@ app.post("/loggingin", async (req, res) => {
     res.redirect("/loggedin");
     return;
   } else {
-    console.log("incorrect password");
-    res.send(`Incorrect password. Please <a href="/login">try again</a>.`);
-    res.redirect("/login");
+    res.send('Invalid email/password. <br><br> Please <a href="/login">try again</a>.');
     return;
   }
 });
@@ -251,8 +262,6 @@ app.get("/cat/:id", (req, res) => {
   } else if (cat == 2) {
     res.send("Socks: <img src='/p_cat.gif' style='width:250px;'>");
   } else if (cat == 3) {
-    res.send("Socks: <img src='/sunglass_cat.jpg' style='width:250px;'>");
-  } else if (cat == 4) {
     res.send("Socks: <img src='/yelling_cat.jpg' style='width:250px;'>");
   } else {
     res.send("Invalid cat id: " + cat);
@@ -263,16 +272,12 @@ app.get("/members", (req, res) => {
   if (!req.session.authenticated) {
     res.redirect("/");
   } else {
-    const images = [
-      "/cat_meme.jpg",
-      "/p_cat.gif",
-      "/sunglass_cat.jpg",
-      "/yelling_cat.jpg",
-    ];
+    const images = ["/cat_meme.jpg", "/p_cat.gif", "/yelling_cat.jpg"];
     randomIndex = Math.floor(Math.random() * images.length);
     res.send(`<h1>Hello, ${req.session.username}.</h1>
     <img src='${images[randomIndex]}' width= "250px">
     <form action='/logout' method='get'> 
+      <br>
       <button type ='submit'>Log out</button>
     </form>`);
   }
@@ -282,7 +287,9 @@ app.use(express.static(__dirname + "/public"));
 
 app.get("*", (req, res) => {
   res.status(404);
-  res.send("Page not found - 404");
+  res.send(
+    '<img src = "/cat_404.gif" width="250px"></img><br> <h2>Page not found - 404</h2>'
+  );
 });
 
 app.listen(port, () => {
